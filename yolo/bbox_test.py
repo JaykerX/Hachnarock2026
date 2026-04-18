@@ -1,5 +1,6 @@
-from PIL import Image, ImageDraw
 from pathlib import Path
+from PIL import Image, ImageDraw
+
 
 def bbox_test(in_img: Path, in_txt: Path) -> None:
     with open(in_txt, 'r') as f:
@@ -30,11 +31,7 @@ def bbox_test(in_img: Path, in_txt: Path) -> None:
     bottom: float = y_center + (box_height / 2.0)
     
     draw: ImageDraw.ImageDraw = ImageDraw.Draw(img)
-    draw.rectangle(
-        [(left, top), (right, bottom)], 
-        outline="red", 
-        width=3
-    )
+    draw.rectangle([(left, top), (right, bottom)], outline="red", width=3)
     
     draw.text((left, top - 10), f"Class: {class_id}", fill="red")
     img.show()
