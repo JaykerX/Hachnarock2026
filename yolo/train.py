@@ -86,6 +86,7 @@ def main() -> None:
         project=str(project_dir),
         name=args.run_name,
         device=device,
+        workers=2
     )
 
     best_path = project_dir / args.run_name / "weights" / "best.pt"
