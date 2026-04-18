@@ -11,13 +11,14 @@
 #define P0_02 2
 #define P0_03 3
 #define P0_04 4
+#define P0_05 5
 
 static const uint8_t out_pins[] = {
     P0_00, P0_01, P0_02, P0_03
 };
 
-#define T0 0.5f
-#define T1 0.6f
+#define T0 0.3f
+#define T1 0.4f
 #define T2 0.7f
 #define T3 0.8f
 #define T4 1.0f
@@ -65,6 +66,7 @@ void process_value(float v)
     }
 
     gpio_pin_set(LED_PORT, P0_04, found);
+    gpio_pin_set(LED_PORT, P0_05, found);
 }
 
 int main(void)
@@ -82,7 +84,7 @@ int main(void)
     }
 
     gpio_pin_configure(LED_PORT, P0_04, GPIO_OUTPUT_LOW);
-
+    gpio_pin_configure(LED_PORT, P0_05, GPIO_OUTPUT_LOW);
     while (1) {
         uint8_t c;
 
