@@ -58,3 +58,4 @@ base/build/
 .vscode/
 
 .env/
+model_dataset/

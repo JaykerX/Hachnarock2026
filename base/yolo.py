@@ -2,44 +2,33 @@ import sys
 import argparse
 from pathlib import Path
 import time
-
 import cv2
 import torch
 from ultralytics import YOLO
 import serial
 import serial.tools.list_ports
+import simpleaudio as sa
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="YOLO webcam + send confidence over UART",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-
+def parse_args():
+    parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--iou", type=float, default=0.45)
     parser.add_argument("--img-size", type=int, default=640)
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--device", type=str, default=None)
-
-    parser.add_argument("--port", type=str, default=None, help="COM port (e.g. COM3). If not set → auto-detect")
+    parser.add_argument("--port", type=str, default=None)
     parser.add_argument("--baud", type=int, default=115200)
-
     return parser.parse_args()
 
 
-def resolve_device(requested: str = None) -> str:
-    if requested:
-        return requested
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
+def resolve_device(req):
+    return req if req else ("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def find_port():
-    ports = serial.tools.list_ports.comports()
-    for p in ports:
+    for p in serial.tools.list_ports.comports():
         if "USB" in p.description or "CDC" in p.description:
             return p.device
     return None
@@ -48,38 +37,34 @@ def find_port():
 def open_serial(port, baud):
     if port is None:
         port = find_port()
-
     if port is None:
-        print("[ERROR] No COM port found", file=sys.stderr)
+        print("[ERROR] No COM port found")
         sys.exit(1)
 
-    print(f"[INFO] Using port: {port}")
-    ser = serial.Serial(port, baud, timeout=1)
-
+    ser = serial.Serial(port, baud, timeout=0.1)
     time.sleep(2)
     return ser
 
 
-def get_confidence(results) -> float:
-    boxes = results[0].boxes
+def play_sound():
+    try:
+        wave = sa.WaveObject.from_wave_file("alarm.wav")
+        wave.play()
+    except Exception as e:
+        print(f"[AUDIO ERROR] {e}")
 
+
+def get_confidence(results):
+    boxes = results[0].boxes
     if boxes is None or len(boxes) == 0:
         return 0.0
-
-    confs = boxes.conf.cpu().numpy()
-
-    return float(confs.max())
+    return float(boxes.conf.cpu().numpy().max())
 
 
-def run_inference(args: argparse.Namespace) -> None:
+def run(args):
     device = resolve_device(args.device)
 
-    print(f"[INFO] Model   : {args.model}")
-    print(f"[INFO] Device  : {device}")
-
-    model = YOLO(str(args.model))
-    model.to(device)
-
+    model = YOLO(str(args.model)).to(device)
     ser = open_serial(args.port, args.baud)
 
     cap = cv2.VideoCapture(args.camera)
@@ -103,25 +88,24 @@ def run_inference(args: argparse.Namespace) -> None:
             )
 
             confidence = get_confidence(results)
+            ser.write(f"{confidence:.3f}\n".encode())
 
-            msg = f"{confidence:.3f}\n"
-            ser.write(msg.encode())
+            while ser.in_waiting > 0:
+                line = ser.readline().decode(errors="ignore").strip()
 
-            print(f"Sent: {msg.strip()}")
+                if "DANGER" in line:
+                    print("[ALERT] DANGER received")
+                    play_sound()
 
-            annotated = results[0].plot()
+            frame_out = results[0].plot()
+            cv2.putText(frame_out, f"conf: {confidence:.3f}",
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (0, 255, 0),
+                        2)
 
-            label = f"conf: {confidence:.3f}"
-            cv2.putText(
-                annotated, label,
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
-
-            cv2.imshow("YOLO → UART", annotated)
+            cv2.imshow("YOLO → UART", frame_out)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -133,4 +117,4 @@ def run_inference(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    run_inference(parse_args())
+    run(parse_args())
