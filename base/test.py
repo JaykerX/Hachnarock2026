@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_device(requested: str | None) -> str:
+def resolve_device(requested: str = None) -> str:
     if requested:
         return requested
     if torch.cuda.is_available():
