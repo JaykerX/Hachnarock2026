@@ -11,7 +11,6 @@ def main() -> None:
     
     project_dir: Path = PROJECT_ROOT / "runs"
     project_dir.mkdir(parents=True, exist_ok=True)
-
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
     print("Training Configuration for YOLO")
