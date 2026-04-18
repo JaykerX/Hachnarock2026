@@ -1,0 +1,4 @@
+west:
+  command: C:\ncs\toolchains\fd21892d0f\opt\bin\Scripts\west build -p always --force
+  topdir: c:\ncs\v3.2.4
+  version: 1.4.0
