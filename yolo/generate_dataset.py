@@ -91,8 +91,8 @@ if __name__ == "__main__":
     test_dir.mkdir(parents=True, exist_ok=True)
     train_dir.mkdir(parents=True, exist_ok=True)
 
-    object_images: list[Path] = list(object_dir.glob("*.png"))
-    all_bg_images: list[Path] = list(bg_input_dir.glob("*.jpg"))
+    object_images: list[Path] = list(object_dir.glob('*'))
+    all_bg_images: list[Path] = list(bg_input_dir.glob('*'))
     
     bg_amount: int = len(all_bg_images)
     label_names: list[str] = [LABEL_NAME]
