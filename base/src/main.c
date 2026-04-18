@@ -1,43 +1,112 @@
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/uart.h>
+#include <stdlib.h>
 
-#include "usb_dma.h"
-#include "frame_assembler.h"
-#include "yolo.h"
-#include "state_machine.h"
-#include "config.h"
+#define LED_PORT DEVICE_DT_GET(DT_NODELABEL(gpio0))
 
-LOG_MODULE_REGISTER(main, 3);
+#define P0_00 0
+#define P0_01 1
+#define P0_02 2
+#define P0_03 3
+#define P0_04 4
 
-static uint8_t frame[IMG_SIZE];
+static const uint8_t out_pins[] = {
+    P0_00, P0_01, P0_02, P0_03
+};
 
-void inference_thread(void)
+#define T0 0.5f
+#define T1 0.6f
+#define T2 0.7f
+#define T3 0.8f
+#define T4 1.0f
+
+#define MIN_TRESHOLD_FRAMES 5
+
+const struct device *uart = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+
+#define BUF_SIZE 32
+static char rx_buf[BUF_SIZE];
+static int rx_pos = 0;
+
+static int above_t1_count = 0;
+static int below_t1_count = 0;
+static int found = 0;
+
+
+
+void process_value(float v)
 {
-    while (1) {
+    int out = 0;
 
-        if (frame_get(frame)) {
+    if (v > T0) out |= (1 << 0);
+    if (v > T1) out |= (1 << 1);
+    if (v > T2) out |= (1 << 2);
+    if (v > T3) out |= (1 << 3);
 
-            bool detected = yolo_detect(frame);
-
-            update_state(detected);
-        }
-
-        k_msleep(5);
+    for (int i = 0; i < 4; i++) {
+        gpio_pin_set(LED_PORT, out_pins[i], (out >> i) & 1);
     }
+
+    if (v > T1) {
+        above_t1_count++;
+        below_t1_count = 0;
+
+        if (above_t1_count >= MIN_TRESHOLD_FRAMES) {
+            found = 1;
+        }
+    } else {
+        above_t1_count = 0;
+        below_t1_count += 1;
+        if (below_t1_count >= MIN_TRESHOLD_FRAMES) {
+            found = 0;
+        }
+    }
+
+    gpio_pin_set(LED_PORT, P0_04, found);
 }
 
-K_THREAD_DEFINE(inf, 4096,
-                inference_thread,
-                NULL, NULL, NULL,
-                1, 0, 0);
-
-void main(void)
+int main(void)
 {
-    LOG_INF("System init");
+    if (!device_is_ready(LED_PORT)) {
+        return -1;
+    }
 
-    usb_init();
+    if (!device_is_ready(uart)) {
+        return -1;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        gpio_pin_configure(LED_PORT, out_pins[i], GPIO_OUTPUT_LOW);
+    }
+
+    gpio_pin_configure(LED_PORT, P0_04, GPIO_OUTPUT_LOW);
 
     while (1) {
-        k_msleep(1000);
+        uint8_t c;
+
+        if (uart_poll_in(uart, &c) == 0) {
+
+            if (c == '\n' || c == '\r') {
+                rx_buf[rx_pos] = '\0';
+
+                float val = strtof(rx_buf, NULL);
+
+                if (val < 0.0f) val = 0.0f;
+                if (val > 1.0f) val = 1.0f;
+
+                process_value(val);
+
+                rx_pos = 0;
+            }
+            else if (rx_pos < BUF_SIZE - 1) {
+                rx_buf[rx_pos++] = c;
+            }
+        }
+
+        k_msleep(1);
     }
+
+    return 0;
 }
