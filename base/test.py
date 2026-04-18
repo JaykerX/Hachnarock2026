@@ -1,136 +1,53 @@
-import sys
-import argparse
-from pathlib import Path
-import time
-
 import cv2
-import torch
-from ultralytics import YOLO
 import serial
-import serial.tools.list_ports
+import time
+import numpy as np
 
+# ===== CONFIG =====
+PORT = "COM5"          # change to /dev/ttyUSB0 on Linux
+BAUD = 921600          # must match board UART speed
+WIDTH = 96
+HEIGHT = 96
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="YOLO webcam + send confidence over UART",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+# ===== SERIAL =====
+ser = serial.Serial(PORT, BAUD, timeout=1)
+time.sleep(2)  # allow board reset
 
-    parser.add_argument("--model", type=Path, required=True)
-    parser.add_argument("--conf", type=float, default=0.25)
-    parser.add_argument("--iou", type=float, default=0.45)
-    parser.add_argument("--img-size", type=int, default=640)
-    parser.add_argument("--camera", type=int, default=0)
-    parser.add_argument("--device", type=str, default=None)
+# ===== CAMERA =====
+cap = cv2.VideoCapture(0)
 
-    parser.add_argument("--port", type=str, default=None, help="COM port (e.g. COM3). If not set → auto-detect")
-    parser.add_argument("--baud", type=int, default=115200)
+if not cap.isOpened():
+    raise RuntimeError("Cannot open camera")
 
-    return parser.parse_args()
+print("Streaming to device... Press Q to stop")
 
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        continue
 
-def resolve_device(requested: str = None) -> str:
-    if requested:
-        return requested
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
+    # ===== Resize to 96x96 =====
+    frame = cv2.resize(frame, (WIDTH, HEIGHT))
 
+    # OpenCV uses BGR → convert to RGB
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-def find_port():
-    ports = serial.tools.list_ports.comports()
-    for p in ports:
-        if "USB" in p.description or "CDC" in p.description:
-            return p.device
-    return None
+    # Flatten to raw bytes
+    img_bytes = frame.astype(np.uint8).tobytes()
 
+    # ===== Send frame =====
+    packet = b"\xAA\x55" + img_bytes
+    ser.write(packet)
 
-def open_serial(port, baud):
-    if port is None:
-        port = find_port()
+    # Optional: limit FPS (~10–20 FPS safe for most MCUs)
+    time.sleep(0.03)
 
-    if port is None:
-        print("[ERROR] No COM port found", file=sys.stderr)
-        sys.exit(1)
+    # Optional preview
+    cv2.imshow("preview", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-    print(f"[INFO] Using port: {port}")
-    ser = serial.Serial(port, baud, timeout=1)
-
-    time.sleep(2)
-    return ser
-
-
-def get_confidence(results) -> float:
-    boxes = results[0].boxes
-
-    if boxes is None or len(boxes) == 0:
-        return 0.0
-
-    confs = boxes.conf.cpu().numpy()
-
-    return float(confs.max())
-
-
-def run_inference(args: argparse.Namespace) -> None:
-    device = resolve_device(args.device)
-
-    print(f"[INFO] Model   : {args.model}")
-    print(f"[INFO] Device  : {device}")
-
-    model = YOLO(str(args.model))
-    model.to(device)
-
-    ser = open_serial(args.port, args.baud)
-
-    cap = cv2.VideoCapture(args.camera)
-    if not cap.isOpened():
-        print("[ERROR] Camera not available")
-        return
-
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                continue
-
-            results = model.predict(
-                source=frame,
-                conf=args.conf,
-                iou=args.iou,
-                imgsz=args.img_size,
-                device=device,
-                verbose=False,
-            )
-
-            confidence = get_confidence(results)
-
-            msg = f"{confidence:.3f}\n"
-            ser.write(msg.encode())
-
-            print(f"Sent: {msg.strip()}")
-
-            annotated = results[0].plot()
-
-            label = f"conf: {confidence:.3f}"
-            cv2.putText(
-                annotated, label,
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2
-            )
-
-            cv2.imshow("YOLO → UART", annotated)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-
-    finally:
-        cap.release()
-        ser.close()
-        cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    run_inference(parse_args())
+# ===== CLEANUP =====
+cap.release()
+ser.close()
+cv2.destroyAllWindows()
