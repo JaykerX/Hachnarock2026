@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 from ultralytics import YOLO  # type: ignore
 
+#jestem tu -Ola
 
 class ArgumentHandler:
     __slots__ = ("_parser", "_parsed_args")
