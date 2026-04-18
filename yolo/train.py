@@ -3,8 +3,6 @@ import argparse
 from pathlib import Path
 from ultralytics import YOLO  # type: ignore
 
-#jestem tu -Ola
-
 class ArgumentHandler:
     __slots__ = ("_parser", "_parsed_args")
     
@@ -19,7 +17,7 @@ class ArgumentHandler:
         self._parser.add_argument("--model", type=str, default="yolov8n.pt", help="Base model name or path")
         self._parser.add_argument("--epochs", type=int, default=150, help="Number of training epochs")
         self._parser.add_argument("--imgsz", type=int, default=640, help="Image size for training")
-        self._parser.add_argument("--batch", type=int, default=4, help="Batch size for training")
+        self._parser.add_argument("--batch", type=int, default=32, help="Batch size for training")
         self._parser.add_argument("--patience", type=int, default=15, help="Early stopping patience")
         self._parser.add_argument("--run_name", type=str, default="YOLO_run", help="Name for the training run")
         

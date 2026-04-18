@@ -3,6 +3,8 @@ import shutil
 import random
 from pathlib import Path
 
+TRAIN_RATIO: float = 0.8
+
 
 def generate_dataset_yaml(classes: list, output_file: Path):
     data_config: dict = {
@@ -22,8 +24,11 @@ def generate_dataset_yaml(classes: list, output_file: Path):
 
 
 def prepare_dataset():
-    input_dir: Path = Path(r"C:\Python\Hachnarock2026\object_overlays")
-    target_dir: Path = Path(r"C:\Python\Hachnarock2026\yolo\yolo_dataset")
+    PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
+    input_dir: Path = PROJECT_ROOT / "object_overlays"
+    target_dir: Path = PROJECT_ROOT / "yolo_dataset"
+
+    print(f"Input directory: {input_dir}")
     
     img_input_dir: Path = input_dir / "img"
     label_input_dir: Path = input_dir / "labels"
@@ -32,14 +37,13 @@ def prepare_dataset():
         (target_dir / split / "images").mkdir(parents=True, exist_ok=True)
         (target_dir / split / "labels").mkdir(parents=True, exist_ok=True)
 
-    images: list = list(img_input_dir.glob("*.jpg")) + list(img_input_dir.glob("*.png"))
-    images = random.sample(images, len(images))
+    images: list = list(img_input_dir.glob("*"))
+    random.shuffle(images)
     
     empty_file_counter: int = 0
     total_count: int = len(images)
 
-    train_split: float = 0.8
-    train_count: int = int(total_count * train_split)
+    train_count: int = int(total_count * TRAIN_RATIO)
 
     print(f"Processing {total_count} files (Train: {train_count}, Val: {total_count - train_count})...")
 
