@@ -12,7 +12,7 @@ def adjust_rocket_size(folder: Path) -> None:
                 
         print(f"Processed: {img_path.name}")
 
-
+#jestem tu - Ola
 if __name__ == "__main__":
     images_folder: Path = Path(r"C:\Python\Hachnarock2026\rocket")
     adjust_rocket_size(images_folder)
