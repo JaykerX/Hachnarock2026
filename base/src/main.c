@@ -22,7 +22,7 @@ static const uint8_t out_pins[] = {
 #define T2 0.7f
 #define T3 0.8f
 
-#define MIN_TRESHOLD_FRAMES 15
+#define MIN_TRESHOLD_FRAMES 8
 
 const struct device *uart = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 

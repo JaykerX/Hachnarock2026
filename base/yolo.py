@@ -13,7 +13,7 @@ import simpleaudio as sa
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path, required=True)
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--iou", type=float, default=0.45)
     parser.add_argument("--img-size", type=int, default=640)
     parser.add_argument("--camera", type=int, default=0)
@@ -48,7 +48,7 @@ def open_serial(port, baud):
 
 def play_sound():
     try:
-        wave = sa.WaveObject.from_wave_file("alarm.wav")
+        wave = sa.WaveObject.from_wave_file("dragon.wav")
         wave.play()
     except Exception as e:
         print(f"[AUDIO ERROR] {e}")
