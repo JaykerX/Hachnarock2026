@@ -7,7 +7,7 @@ import torch
 from ultralytics import YOLO
 import serial
 import serial.tools.list_ports
-import simpleaudio as sa
+import winsound
 
 
 def parse_args():
@@ -48,8 +48,7 @@ def open_serial(port, baud):
 
 def play_sound():
     try:
-        wave = sa.WaveObject.from_wave_file("alarm.wav")
-        wave.play()
+        winsound.PlaySound("alarm.wav", winsound.SND_FILENAME | winsound.SND_ASYNC)
     except Exception as e:
         print(f"[AUDIO ERROR] {e}")
 
@@ -98,14 +97,17 @@ def run(args):
                     play_sound()
 
             frame_out = results[0].plot()
-            cv2.putText(frame_out, f"conf: {confidence:.3f}",
-                        (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.7,
-                        (0, 255, 0),
-                        2)
+            cv2.putText(
+                frame_out,
+                f"conf: {confidence:.3f}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2,
+            )
 
-            cv2.imshow("YOLO → UART", frame_out)
+            cv2.imshow("YOLO -> UART", frame_out)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
